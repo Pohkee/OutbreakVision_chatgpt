@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Impact Score Predictor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #1e1e2f;
+      color: white;
+      margin: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #f2f2f2;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      background-color: #3a3d56;
+      color: white;
+      border: 1px solid #555;
+      border-radius: 5px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .result, .stats {
+      margin-top: 20px;
+      font-size: 1.1em;
+    }
+    .stats div {
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Impact Score Predictor</h1>
+  <p>Enter a country name and we'll autofill the rest:</p>
+
+  <form id="impactForm">
+    <div class="form-group">
+      <label for="country">Country:</label>
+      <input type="text" id="country" name="country" required />
+    </div>
+    <button type="button" onclick="fetchCountryData()">Fetch & Predict</button>
+  </form>
+
+  <div class="stats" id="stats"></div>
+  <div class="result" id="result"></div>
+
+  <script>
+    async function fetchCountryData() {
+      const country = document.getElementById("country").value;
+      const statsDiv = document.getElementById("stats");
+      const resultDiv = document.getElementById("result");
+
+      statsDiv.innerHTML = "Fetching data...";
+      resultDiv.innerHTML = "";
+
+      try {
+        // 👉 Call your backend to get country stats
+        const response = await fetch("/country-data", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ country })
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch country data.");
+        }
+
+        const values = await response.json();
+
+        // Show values in UI
+        statsDiv.innerHTML = `
+          <div><strong>Population Density:</strong> ${values.population_density}</div>
+          <div><strong>GDP per Capita:</strong> ${values.gdp_per_capita}</div>
+          <div><strong>Literacy Rate:</strong> ${values.literacy_rate}</div>
+          <div><strong>Food Insecurity Index:</strong> ${values.food_insecurity}</div>
+          <div><strong>Health Access Index:</strong> ${values.health_access}</div>
+          <div><strong>Travel & Tourism Arrivals:</strong> ${values.travel_tourism}</div>
+          <div><strong>Pollution (PM2.5):</strong> ${values.pollution}</div>
+        `;
+
+        // 👉 Call your impact score prediction route
+        const predictionResponse = await fetch("/predict", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ inputs: [
+            values.population_density,
+            values.pollution,
+            values.gdp_per_capita,
+            values.literacy_rate,
+            values.food_insecurity,
+            values.health_access,
+            values.travel_tourism
+          ]})
+        });
+
+        const predictionResult = await predictionResponse.json();
+
+        if (!predictionResult.success) {
+          throw new Error(predictionResult.error || "Prediction failed.");
+        }
+
+        resultDiv.innerText = `Predicted Impact Score for ${country}: ${predictionResult.score.toFixed(2)}`;
+
+      } catch (error) {
+        statsDiv.innerHTML = "Error fetching data.";
+        resultDiv.innerHTML = "";
+        console.error("Error:", error);
+      }
+    }
+  </script>
+</body>
+</html>
